@@ -1,0 +1,6 @@
+{
+  "name": "InstaWash ERP",
+  "description": "Multi-branch laundry and dry-cleaning ERP platform with 10-minute geofenced pickup, cryptographic doorstep weight locking, dynamic pricing and discount rules, POD settlement ledgers, Excel bulk staff/role import, and product making BOM management.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

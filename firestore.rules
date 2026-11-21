@@ -1,0 +1,448 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global default-deny safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Shared hardened primitives
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isBootstrappedAdmin() {
+      return isVerified() && request.auth.token.email == 'prashantsagarmepl@gmail.com';
+    }
+
+    function isAdmin() {
+      return isBootstrappedAdmin() || (
+        isVerified() && exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    function isOwner(ownerUid) {
+      return isVerified() && ownerUid == request.auth.uid;
+    }
+
+    // Validation Blueprints
+    function isValidHub(data) {
+      return data.keys().hasAll(['hubId', 'code', 'name', 'city', 'latitude', 'longitude', 'geofenceRadiusKm', 'franchiseTier', 'partnerSharePercent', 'royaltyPercent', 'openHours', 'isActive', 'ownerUid', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['hubId', 'code', 'name', 'city', 'latitude', 'longitude', 'geofenceRadiusKm', 'franchiseTier', 'partnerSharePercent', 'royaltyPercent', 'openHours', 'isActive', 'ownerUid', 'createdAt', 'updatedAt'])
+        && isValidId(data.hubId)
+        && data.code is string && data.code.size() >= 2 && data.code.size() <= 24
+        && data.name is string && data.name.size() >= 2 && data.name.size() <= 100
+        && data.city is string && data.city.size() >= 2 && data.city.size() <= 100
+        && data.latitude is number && data.latitude >= -90 && data.latitude <= 90
+        && data.longitude is number && data.longitude >= -180 && data.longitude <= 180
+        && data.geofenceRadiusKm is number && data.geofenceRadiusKm > 0 && data.geofenceRadiusKm <= 50
+        && data.franchiseTier in ['EXPRESS_MICRO', 'STANDARD_HUB', 'MASTER_DISTRICT']
+        && data.partnerSharePercent is number && data.partnerSharePercent >= 0 && data.partnerSharePercent <= 100
+        && data.royaltyPercent is number && data.royaltyPercent >= 0 && data.royaltyPercent <= 100
+        && data.openHours is string && data.openHours.size() <= 64
+        && data.isActive is bool
+        && data.ownerUid is string && data.ownerUid.size() <= 128
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidPricingRule(data) {
+      return data.keys().hasAll(['ruleId', 'hubId', 'ratePerKg', 'homeDeliveryFee', 'officePickupFee', 'freeDeliveryThreshold', 'minOrderEnabled', 'minOrderKg', 'minOrderAmount', 'codEnabled', 'upiEnabled', 'cardsEnabled', 'maxRiderCodLimit', 'cancellationPenalty', 'slaPickupAlertMinutes', 'ownerUid', 'updatedAt'])
+        && data.keys().hasOnly(['ruleId', 'hubId', 'ratePerKg', 'homeDeliveryFee', 'officePickupFee', 'freeDeliveryThreshold', 'minOrderEnabled', 'minOrderKg', 'minOrderAmount', 'codEnabled', 'upiEnabled', 'cardsEnabled', 'maxRiderCodLimit', 'cancellationPenalty', 'slaPickupAlertMinutes', 'ownerUid', 'updatedAt'])
+        && isValidId(data.ruleId)
+        && isValidId(data.hubId)
+        && data.ratePerKg is number && data.ratePerKg >= 0 && data.ratePerKg <= 10000
+        && data.homeDeliveryFee is number && data.homeDeliveryFee >= 0 && data.homeDeliveryFee <= 2000
+        && data.officePickupFee is number && data.officePickupFee >= 0 && data.officePickupFee <= 2000
+        && data.freeDeliveryThreshold is number && data.freeDeliveryThreshold >= 0
+        && data.minOrderEnabled is bool
+        && data.minOrderKg is number && data.minOrderKg >= 0
+        && data.minOrderAmount is number && data.minOrderAmount >= 0
+        && data.codEnabled is bool
+        && data.upiEnabled is bool
+        && data.cardsEnabled is bool
+        && data.maxRiderCodLimit is number && data.maxRiderCodLimit >= 0
+        && data.cancellationPenalty is number && data.cancellationPenalty >= 0
+        && data.slaPickupAlertMinutes is number && data.slaPickupAlertMinutes >= 1 && data.slaPickupAlertMinutes <= 120
+        && data.ownerUid is string && data.ownerUid.size() <= 128
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidDiscountSlab(data) {
+      return data.keys().hasAll(['slabId', 'hubId', 'label', 'minAmount', 'maxAmount', 'discountPercent', 'isActive', 'sortOrder', 'ownerUid', 'updatedAt'])
+        && data.keys().hasOnly(['slabId', 'hubId', 'label', 'minAmount', 'maxAmount', 'discountPercent', 'isActive', 'sortOrder', 'ownerUid', 'updatedAt'])
+        && isValidId(data.slabId)
+        && isValidId(data.hubId)
+        && data.label is string && data.label.size() >= 1 && data.label.size() <= 80
+        && data.minAmount is number && data.minAmount >= 0
+        && data.maxAmount is number && data.maxAmount >= data.minAmount
+        && data.discountPercent is number && data.discountPercent >= 0 && data.discountPercent <= 90
+        && data.isActive is bool
+        && data.sortOrder is number
+        && data.ownerUid is string && data.ownerUid.size() <= 128
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidOrder(data) {
+      return data.keys().hasAll(['orderId', 'orderNumber', 'customerName', 'customerUid', 'hubId', 'riderId', 'bagQrCode', 'fulfillmentType', 'paymentMethod', 'paymentStatus', 'weightKg', 'garmentCount', 'isWeightLocked', 'weightLockHash', 'grossAmount', 'discountPercent', 'discountAmount', 'deliveryFee', 'finalPayable', 'deliveryOtp', 'status', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['orderId', 'orderNumber', 'customerName', 'customerUid', 'hubId', 'riderId', 'bagQrCode', 'fulfillmentType', 'paymentMethod', 'paymentStatus', 'weightKg', 'garmentCount', 'isWeightLocked', 'weightLockHash', 'grossAmount', 'discountPercent', 'discountAmount', 'deliveryFee', 'finalPayable', 'deliveryOtp', 'status', 'createdAt', 'updatedAt'])
+        && isValidId(data.orderId)
+        && data.orderNumber is string && data.orderNumber.size() >= 4 && data.orderNumber.size() <= 32
+        && data.customerName is string && data.customerName.size() >= 1 && data.customerName.size() <= 100
+        && data.customerUid is string && data.customerUid.size() <= 128
+        && isValidId(data.hubId)
+        && data.riderId is string && data.riderId.size() <= 64
+        && data.bagQrCode is string && data.bagQrCode.size() <= 100
+        && data.fulfillmentType in ['HOME_DELIVERY', 'OFFICE_PICKUP']
+        && data.paymentMethod in ['POD_CASH', 'POD_UPI', 'ONLINE_PREPAID']
+        && data.paymentStatus in ['PENDING', 'PAID', 'REFUNDED']
+        && data.weightKg is number && data.weightKg >= 0 && data.weightKg <= 500
+        && data.garmentCount is number && data.garmentCount >= 0 && data.garmentCount <= 1000
+        && data.isWeightLocked is bool
+        && data.weightLockHash is string && data.weightLockHash.size() <= 128
+        && data.grossAmount is number && data.grossAmount >= 0
+        && data.discountPercent is number && data.discountPercent >= 0 && data.discountPercent <= 100
+        && data.discountAmount is number && data.discountAmount >= 0
+        && data.deliveryFee is number && data.deliveryFee >= 0
+        && data.finalPayable is number && data.finalPayable >= 0
+        && data.deliveryOtp is string && data.deliveryOtp.size() >= 4 && data.deliveryOtp.size() <= 6
+        && data.status in ['PICKUP_REQUESTED', 'RIDER_ASSIGNED', 'WEIGHED_AND_LOCKED', 'RECEIVED_AT_HUB', 'IN_WASH', 'DRYING_IRONING', 'QUALITY_CHECK', 'PACKED_AND_READY', 'OUT_FOR_DELIVERY', 'DELIVERED_AND_SETTLED', 'CANCELLED']
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidWeightAuditLog(data) {
+      return data.keys().hasAll(['logId', 'orderId', 'orderNumber', 'oldWeight', 'newWeight', 'changedByRole', 'changedByUid', 'reason', 'createdAt'])
+        && data.keys().hasOnly(['logId', 'orderId', 'orderNumber', 'oldWeight', 'newWeight', 'changedByRole', 'changedByUid', 'reason', 'createdAt'])
+        && isValidId(data.logId)
+        && isValidId(data.orderId)
+        && data.orderNumber is string && data.orderNumber.size() <= 32
+        && data.oldWeight is number && data.oldWeight >= 0
+        && data.newWeight is number && data.newWeight > 0 && data.newWeight <= 500
+        && data.changedByRole in ['SUPER_ADMIN', 'FRANCHISE_PARTNER']
+        && data.changedByUid is string && data.changedByUid == request.auth.uid
+        && data.reason is string && data.reason.size() >= 15 && data.reason.size() <= 500
+        && data.createdAt is timestamp;
+    }
+
+    function isValidPodLedger(data) {
+      return data.keys().hasAll(['entryId', 'riderId', 'riderName', 'hubId', 'orderId', 'collectionMode', 'amountCollected', 'settlementStatus', 'settledWithUid', 'ownerUid', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['entryId', 'riderId', 'riderName', 'hubId', 'orderId', 'collectionMode', 'amountCollected', 'settlementStatus', 'settledWithUid', 'ownerUid', 'createdAt', 'updatedAt'])
+        && isValidId(data.entryId)
+        && isValidId(data.riderId)
+        && data.riderName is string && data.riderName.size() <= 100
+        && isValidId(data.hubId)
+        && isValidId(data.orderId)
+        && data.collectionMode in ['CASH', 'RIDER_UPI_QR']
+        && data.amountCollected is number && data.amountCollected >= 0
+        && data.settlementStatus in ['UNSETTLED', 'SETTLED_WITH_HUB']
+        && data.settledWithUid is string && data.settledWithUid.size() <= 128
+        && data.ownerUid is string && data.ownerUid.size() <= 128
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidStaffAccount(data) {
+      return data.keys().hasAll(['staffId', 'loginId', 'fullName', 'role', 'hubId', 'passwordHash', 'status', 'ownerUid', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['staffId', 'loginId', 'fullName', 'role', 'hubId', 'passwordHash', 'status', 'ownerUid', 'createdAt', 'updatedAt'])
+        && isValidId(data.staffId)
+        && data.loginId is string && data.loginId.size() >= 3 && data.loginId.size() <= 100
+        && data.fullName is string && data.fullName.size() >= 2 && data.fullName.size() <= 100
+        && data.role in ['SUPER_ADMIN', 'FRANCHISE_PARTNER', 'HUB_OPERATOR', 'RIDER']
+        && isValidId(data.hubId)
+        && data.passwordHash is string && data.passwordHash.size() >= 16 && data.passwordHash.size() <= 128
+        && data.status in ['ACTIVE', 'SUSPENDED']
+        && data.ownerUid is string && data.ownerUid.size() <= 128
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidProduct(data) {
+      return data.keys().hasAll(['productId', 'sku', 'name', 'category', 'unitType', 'sellingPrice', 'makingCost', 'stockUnits', 'isPublished', 'ownerUid', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['productId', 'sku', 'name', 'category', 'unitType', 'sellingPrice', 'makingCost', 'stockUnits', 'isPublished', 'ownerUid', 'createdAt', 'updatedAt'])
+        && isValidId(data.productId)
+        && data.sku is string && data.sku.size() >= 2 && data.sku.size() <= 32
+        && data.name is string && data.name.size() >= 2 && data.name.size() <= 100
+        && data.category in ['LAUNDRY_SERVICE', 'DRY_CLEAN', 'ADDON_TREATMENT', 'RETAIL_CARE']
+        && data.unitType is string && data.unitType.size() >= 1 && data.unitType.size() <= 24
+        && data.sellingPrice is number && data.sellingPrice >= 0
+        && data.makingCost is number && data.makingCost >= 0
+        && data.stockUnits is number && data.stockUnits >= 0
+        && data.isPublished is bool
+        && data.ownerUid is string && data.ownerUid.size() <= 128
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidProductionBatch(data) {
+      return data.keys().hasAll(['batchId', 'productId', 'hubId', 'quantityProduced', 'totalCost', 'status', 'ownerUid', 'createdAt'])
+        && data.keys().hasOnly(['batchId', 'productId', 'hubId', 'quantityProduced', 'totalCost', 'status', 'ownerUid', 'createdAt'])
+        && isValidId(data.batchId)
+        && isValidId(data.productId)
+        && isValidId(data.hubId)
+        && data.quantityProduced is number && data.quantityProduced > 0
+        && data.totalCost is number && data.totalCost >= 0
+        && data.status in ['PLANNED', 'IN_PRODUCTION', 'QC_PASSED']
+        && data.ownerUid is string && data.ownerUid == request.auth.uid
+        && data.createdAt is timestamp;
+    }
+
+    function isValidAuditEvent(data) {
+      return data.keys().hasAll(['eventId', 'actorUid', 'actorRole', 'action', 'entityType', 'summary', 'createdAt'])
+        && data.keys().hasOnly(['eventId', 'actorUid', 'actorRole', 'action', 'entityType', 'summary', 'createdAt'])
+        && isValidId(data.eventId)
+        && data.actorUid is string && data.actorUid == request.auth.uid
+        && data.actorRole is string && data.actorRole.size() <= 40
+        && data.action is string && data.action.size() <= 80
+        && data.entityType is string && data.entityType.size() <= 40
+        && data.summary is string && data.summary.size() <= 400
+        && data.createdAt is timestamp;
+    }
+
+    function isValidBanner(data) {
+      return data.keys().hasAll(['bannerId', 'title', 'tickerText', 'placement', 'hubId', 'ctaLabel', 'promoCode', 'theme', 'speedSeconds', 'priority', 'isActive', 'ownerUid', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['bannerId', 'title', 'tickerText', 'placement', 'hubId', 'ctaLabel', 'promoCode', 'theme', 'speedSeconds', 'priority', 'isActive', 'ownerUid', 'createdAt', 'updatedAt'])
+        && isValidId(data.bannerId)
+        && data.title is string && data.title.size() >= 2 && data.title.size() <= 100
+        && data.tickerText is string && data.tickerText.size() >= 4 && data.tickerText.size() <= 400
+        && data.placement in ['PUBLIC_WEBSITE', 'FRANCHISE_PORTAL', 'BOTH']
+        && isValidId(data.hubId)
+        && data.ctaLabel is string && data.ctaLabel.size() <= 60
+        && data.promoCode is string && data.promoCode.size() <= 32
+        && data.theme in ['OCEAN', 'SLATE', 'AMBER', 'EMERALD']
+        && data.speedSeconds is number && data.speedSeconds >= 8 && data.speedSeconds <= 120
+        && data.priority is number && data.priority >= 1 && data.priority <= 100
+        && data.isActive is bool
+        && data.ownerUid is string && data.ownerUid.size() <= 128
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    // Admin registry (read-only by self, never client-writable)
+    match /admins/{uid} {
+      allow get: if isVerified() && uid == request.auth.uid;
+      allow list, create, update, delete: if false;
+    }
+
+    // Hubs (no exists()/get() in list queries)
+    match /hubs/{hubId} {
+      allow get: if isValidId(hubId) && (isAdmin() || (isVerified() && (resource == null || existing().ownerUid == request.auth.uid)));
+      allow list: if isVerified() && (isBootstrappedAdmin() || existing().ownerUid == request.auth.uid);
+      allow create: if isVerified() && isValidId(hubId) && isValidHub(incoming())
+        && incoming().hubId == hubId
+        && incoming().ownerUid == request.auth.uid
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isVerified() && isValidId(hubId) && isValidHub(incoming())
+        && incoming().hubId == existing().hubId
+        && incoming().ownerUid == existing().ownerUid
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          isAdmin() ||
+          (isOwner(existing().ownerUid) && incoming().diff(existing()).affectedKeys().hasOnly(['name', 'city', 'latitude', 'longitude', 'geofenceRadiusKm', 'franchiseTier', 'partnerSharePercent', 'royaltyPercent', 'openHours', 'isActive', 'updatedAt']))
+        );
+      allow delete: if isValidId(hubId) && (isAdmin() || isOwner(existing().ownerUid));
+    }
+
+    // Pricing rules
+    match /pricing_rules/{ruleId} {
+      allow get: if isValidId(ruleId) && (isAdmin() || (isVerified() && (resource == null || existing().ownerUid == request.auth.uid)));
+      allow list: if isVerified() && (isBootstrappedAdmin() || existing().ownerUid == request.auth.uid);
+      allow create: if isVerified() && isValidId(ruleId) && isValidPricingRule(incoming())
+        && incoming().ruleId == ruleId
+        && incoming().ownerUid == request.auth.uid
+        && incoming().updatedAt == request.time;
+      allow update: if isVerified() && isValidId(ruleId) && isValidPricingRule(incoming())
+        && incoming().ruleId == existing().ruleId
+        && incoming().ownerUid == existing().ownerUid
+        && incoming().updatedAt == request.time
+        && (
+          isAdmin() ||
+          (isOwner(existing().ownerUid) && incoming().diff(existing()).affectedKeys().hasOnly(['ratePerKg', 'homeDeliveryFee', 'officePickupFee', 'freeDeliveryThreshold', 'minOrderEnabled', 'minOrderKg', 'minOrderAmount', 'codEnabled', 'upiEnabled', 'cardsEnabled', 'maxRiderCodLimit', 'cancellationPenalty', 'slaPickupAlertMinutes', 'updatedAt']))
+        );
+      allow delete: if isValidId(ruleId) && (isAdmin() || isOwner(existing().ownerUid));
+    }
+
+    // Discount slabs
+    match /discount_slabs/{slabId} {
+      allow get: if isValidId(slabId) && (isAdmin() || (isVerified() && (resource == null || existing().ownerUid == request.auth.uid)));
+      allow list: if isVerified() && (isBootstrappedAdmin() || existing().ownerUid == request.auth.uid);
+      allow create: if isVerified() && isValidId(slabId) && isValidDiscountSlab(incoming())
+        && incoming().slabId == slabId
+        && incoming().ownerUid == request.auth.uid
+        && incoming().updatedAt == request.time;
+      allow update: if isVerified() && isValidId(slabId) && isValidDiscountSlab(incoming())
+        && incoming().slabId == existing().slabId
+        && incoming().ownerUid == existing().ownerUid
+        && incoming().updatedAt == request.time
+        && (
+          isAdmin() ||
+          (isOwner(existing().ownerUid) && incoming().diff(existing()).affectedKeys().hasOnly(['label', 'minAmount', 'maxAmount', 'discountPercent', 'isActive', 'sortOrder', 'updatedAt']))
+        );
+      allow delete: if isValidId(slabId) && (isAdmin() || isOwner(existing().ownerUid));
+    }
+
+    // Orders
+    match /orders/{orderId} {
+      allow get: if isValidId(orderId) && (isAdmin() || (isVerified() && (resource == null || existing().customerUid == request.auth.uid)));
+      allow list: if isVerified() && (isBootstrappedAdmin() || existing().customerUid == request.auth.uid);
+      allow create: if isVerified() && isValidId(orderId) && isValidOrder(incoming())
+        && incoming().orderId == orderId
+        && incoming().customerUid == request.auth.uid
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isVerified() && isValidId(orderId) && isValidOrder(incoming())
+        && incoming().orderId == existing().orderId
+        && incoming().customerUid == existing().customerUid
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          isAdmin() ||
+          (
+            isOwner(existing().customerUid)
+            && !(existing().status in ['DELIVERED_AND_SETTLED', 'CANCELLED'])
+            && (
+              (existing().isWeightLocked == false && incoming().isWeightLocked == true
+                && incoming().diff(existing()).affectedKeys().hasOnly(['weightKg', 'garmentCount', 'bagQrCode', 'isWeightLocked', 'weightLockHash', 'grossAmount', 'discountPercent', 'discountAmount', 'deliveryFee', 'finalPayable', 'status', 'updatedAt'])) ||
+              (incoming().weightKg == existing().weightKg && incoming().isWeightLocked == existing().isWeightLocked
+                && incoming().diff(existing()).affectedKeys().hasOnly(['riderId', 'fulfillmentType', 'paymentMethod', 'paymentStatus', 'deliveryFee', 'finalPayable', 'status', 'updatedAt']))
+            )
+          )
+        );
+      allow delete: if isValidId(orderId) && isAdmin();
+    }
+
+    // Weight audit logs (append-only)
+    match /weight_audit_logs/{logId} {
+      allow get: if isValidId(logId) && (isAdmin() || isOwner(existing().changedByUid));
+      allow list: if isVerified() && (isBootstrappedAdmin() || existing().changedByUid == request.auth.uid);
+      allow create: if isVerified() && isValidId(logId) && isValidWeightAuditLog(incoming())
+        && incoming().logId == logId
+        && incoming().createdAt == request.time;
+      allow update, delete: if false;
+    }
+
+    // Rider POD Ledger
+    match /rider_pod_ledger/{entryId} {
+      allow get: if isValidId(entryId) && (isAdmin() || (isVerified() && (resource == null || existing().ownerUid == request.auth.uid)));
+      allow list: if isVerified() && (isBootstrappedAdmin() || existing().ownerUid == request.auth.uid);
+      allow create: if isVerified() && isValidId(entryId) && isValidPodLedger(incoming())
+        && incoming().entryId == entryId
+        && incoming().ownerUid == request.auth.uid
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isVerified() && isValidId(entryId) && isValidPodLedger(incoming())
+        && incoming().entryId == existing().entryId
+        && incoming().ownerUid == existing().ownerUid
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          isAdmin() ||
+          (isOwner(existing().ownerUid) && existing().settlementStatus == 'UNSETTLED'
+            && incoming().diff(existing()).affectedKeys().hasOnly(['settlementStatus', 'settledWithUid', 'updatedAt']))
+        );
+      allow delete: if false;
+    }
+
+    // Staff & Role Accounts (PII / Credentials isolated)
+    match /staff_accounts/{staffId} {
+      allow get: if isValidId(staffId) && (isAdmin() || (isVerified() && (resource == null || existing().ownerUid == request.auth.uid)));
+      allow list: if isVerified() && (isBootstrappedAdmin() || existing().ownerUid == request.auth.uid);
+      allow create: if isVerified() && isValidId(staffId) && isValidStaffAccount(incoming())
+        && incoming().staffId == staffId
+        && incoming().ownerUid == request.auth.uid
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isVerified() && isValidId(staffId) && isValidStaffAccount(incoming())
+        && incoming().staffId == existing().staffId
+        && incoming().ownerUid == existing().ownerUid
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          isAdmin() ||
+          (isOwner(existing().ownerUid) && incoming().diff(existing()).affectedKeys().hasOnly(['fullName', 'role', 'hubId', 'passwordHash', 'status', 'updatedAt']))
+        );
+      allow delete: if isValidId(staffId) && (isAdmin() || isOwner(existing().ownerUid));
+    }
+
+    // Products & BOM Formulas
+    match /products/{productId} {
+      allow get: if isValidId(productId) && (isAdmin() || (isVerified() && (resource == null || existing().ownerUid == request.auth.uid)));
+      allow list: if isVerified() && (isBootstrappedAdmin() || existing().ownerUid == request.auth.uid);
+      allow create: if isVerified() && isValidId(productId) && isValidProduct(incoming())
+        && incoming().productId == productId
+        && incoming().ownerUid == request.auth.uid
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isVerified() && isValidId(productId) && isValidProduct(incoming())
+        && incoming().productId == existing().productId
+        && incoming().ownerUid == existing().ownerUid
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          isAdmin() ||
+          (isOwner(existing().ownerUid) && incoming().diff(existing()).affectedKeys().hasOnly(['name', 'category', 'unitType', 'sellingPrice', 'makingCost', 'stockUnits', 'isPublished', 'updatedAt']))
+        );
+      allow delete: if isValidId(productId) && (isAdmin() || isOwner(existing().ownerUid));
+    }
+
+    // Production batches (append-only)
+    match /production_batches/{batchId} {
+      allow get: if isValidId(batchId) && (isAdmin() || isOwner(existing().ownerUid));
+      allow list: if isVerified() && (isBootstrappedAdmin() || existing().ownerUid == request.auth.uid);
+      allow create: if isVerified() && isValidId(batchId) && isValidProductionBatch(incoming())
+        && incoming().batchId == batchId
+        && incoming().createdAt == request.time;
+      allow update, delete: if false;
+    }
+
+    // Audit events (append-only)
+    match /audit_events/{eventId} {
+      allow get: if isValidId(eventId) && (isAdmin() || isOwner(existing().actorUid));
+      allow list: if isVerified() && (isBootstrappedAdmin() || existing().actorUid == request.auth.uid);
+      allow create: if isVerified() && isValidId(eventId) && isValidAuditEvent(incoming())
+        && incoming().eventId == eventId
+        && incoming().createdAt == request.time;
+      allow update, delete: if false;
+    }
+
+    // Running Banners & Website/Franchise Ads
+    match /banners/{bannerId} {
+      allow get: if isValidId(bannerId) && (isAdmin() || (isVerified() && (resource == null || existing().ownerUid == request.auth.uid)) || (resource != null && existing().isActive == true));
+      allow list: if (isVerified() && isBootstrappedAdmin()) || existing().isActive == true;
+      allow create: if isVerified() && isValidId(bannerId) && isValidBanner(incoming())
+        && incoming().bannerId == bannerId
+        && incoming().ownerUid == request.auth.uid
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isVerified() && isValidId(bannerId) && isValidBanner(incoming())
+        && incoming().bannerId == existing().bannerId
+        && incoming().ownerUid == existing().ownerUid
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          isAdmin() ||
+          (isOwner(existing().ownerUid) && incoming().diff(existing()).affectedKeys().hasOnly(['title', 'tickerText', 'placement', 'hubId', 'ctaLabel', 'promoCode', 'theme', 'speedSeconds', 'priority', 'isActive', 'updatedAt']))
+        );
+      allow delete: if isValidId(bannerId) && (isAdmin() || isOwner(existing().ownerUid));
+    }
+  }
+}

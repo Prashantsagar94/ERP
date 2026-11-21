@@ -1,0 +1,290 @@
+{
+  "entities": {
+    "Hub": {
+      "title": "Hub",
+      "description": "Self-owned or franchise laundry hub with configurable geofence and royalty split.",
+      "type": "object",
+      "properties": {
+        "hubId": { "type": "string", "maxLength": 64, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "code": { "type": "string", "maxLength": 24 },
+        "name": { "type": "string", "maxLength": 100 },
+        "city": { "type": "string", "maxLength": 100 },
+        "latitude": { "type": "number" },
+        "longitude": { "type": "number" },
+        "geofenceRadiusKm": { "type": "number" },
+        "franchiseTier": { "type": "string", "enum": ["EXPRESS_MICRO", "STANDARD_HUB", "MASTER_DISTRICT"] },
+        "partnerSharePercent": { "type": "number" },
+        "royaltyPercent": { "type": "number" },
+        "openHours": { "type": "string", "maxLength": 64 },
+        "isActive": { "type": "boolean" },
+        "ownerUid": { "type": "string", "maxLength": 128 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["hubId", "name", "city", "latitude", "longitude", "geofenceRadiusKm", "franchiseTier", "royaltyPercent", "isActive", "ownerUid", "createdAt", "updatedAt"]
+    },
+    "PricingRule": {
+      "title": "PricingRule",
+      "description": "Dynamic global or hub-scoped pricing and fee configuration.",
+      "type": "object",
+      "properties": {
+        "ruleId": { "type": "string", "maxLength": 64, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "hubId": { "type": "string", "maxLength": 64 },
+        "ratePerKg": { "type": "number" },
+        "homeDeliveryFee": { "type": "number" },
+        "officePickupFee": { "type": "number" },
+        "freeDeliveryThreshold": { "type": "number" },
+        "minOrderEnabled": { "type": "boolean" },
+        "minOrderKg": { "type": "number" },
+        "minOrderAmount": { "type": "number" },
+        "codEnabled": { "type": "boolean" },
+        "upiEnabled": { "type": "boolean" },
+        "cardsEnabled": { "type": "boolean" },
+        "maxRiderCodLimit": { "type": "number" },
+        "cancellationPenalty": { "type": "number" },
+        "slaPickupAlertMinutes": { "type": "number" },
+        "ownerUid": { "type": "string", "maxLength": 128 },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["ruleId", "hubId", "ratePerKg", "homeDeliveryFee", "officePickupFee", "ownerUid", "updatedAt"]
+    },
+    "DiscountSlab": {
+      "title": "DiscountSlab",
+      "description": "Configurable monetary discount tier bracket.",
+      "type": "object",
+      "properties": {
+        "slabId": { "type": "string", "maxLength": 64, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "hubId": { "type": "string", "maxLength": 64 },
+        "label": { "type": "string", "maxLength": 80 },
+        "minAmount": { "type": "number" },
+        "maxAmount": { "type": "number" },
+        "discountPercent": { "type": "number" },
+        "isActive": { "type": "boolean" },
+        "sortOrder": { "type": "number" },
+        "ownerUid": { "type": "string", "maxLength": 128 },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["slabId", "hubId", "label", "minAmount", "maxAmount", "discountPercent", "isActive", "ownerUid", "updatedAt"]
+    },
+    "Order": {
+      "title": "Order",
+      "description": "End-to-end laundry order with cryptographic doorstep weight lock and 7-stage status pipeline.",
+      "type": "object",
+      "properties": {
+        "orderId": { "type": "string", "maxLength": 64, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "orderNumber": { "type": "string", "maxLength": 32 },
+        "customerName": { "type": "string", "maxLength": 100 },
+        "customerUid": { "type": "string", "maxLength": 128 },
+        "hubId": { "type": "string", "maxLength": 64 },
+        "riderId": { "type": "string", "maxLength": 64 },
+        "bagQrCode": { "type": "string", "maxLength": 100 },
+        "fulfillmentType": { "type": "string", "enum": ["HOME_DELIVERY", "OFFICE_PICKUP"] },
+        "paymentMethod": { "type": "string", "enum": ["POD_CASH", "POD_UPI", "ONLINE_PREPAID"] },
+        "paymentStatus": { "type": "string", "enum": ["PENDING", "PAID", "REFUNDED"] },
+        "weightKg": { "type": "number" },
+        "garmentCount": { "type": "number" },
+        "isWeightLocked": { "type": "boolean" },
+        "weightLockHash": { "type": "string", "maxLength": 128 },
+        "grossAmount": { "type": "number" },
+        "discountPercent": { "type": "number" },
+        "discountAmount": { "type": "number" },
+        "deliveryFee": { "type": "number" },
+        "finalPayable": { "type": "number" },
+        "deliveryOtp": { "type": "string", "maxLength": 6 },
+        "status": {
+          "type": "string",
+          "enum": [
+            "PICKUP_REQUESTED",
+            "RIDER_ASSIGNED",
+            "WEIGHED_AND_LOCKED",
+            "RECEIVED_AT_HUB",
+            "IN_WASH",
+            "DRYING_IRONING",
+            "QUALITY_CHECK",
+            "PACKED_AND_READY",
+            "OUT_FOR_DELIVERY",
+            "DELIVERED_AND_SETTLED",
+            "CANCELLED"
+          ]
+        },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["orderId", "orderNumber", "customerUid", "hubId", "fulfillmentType", "paymentMethod", "paymentStatus", "weightKg", "isWeightLocked", "finalPayable", "deliveryOtp", "status", "createdAt", "updatedAt"]
+    },
+    "WeightAuditLog": {
+      "title": "WeightAuditLog",
+      "description": "Immutable audit record for admin or hub manager weight dispute overrides.",
+      "type": "object",
+      "properties": {
+        "logId": { "type": "string", "maxLength": 64, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "orderId": { "type": "string", "maxLength": 64 },
+        "orderNumber": { "type": "string", "maxLength": 32 },
+        "oldWeight": { "type": "number" },
+        "newWeight": { "type": "number" },
+        "changedByRole": { "type": "string", "enum": ["SUPER_ADMIN", "FRANCHISE_PARTNER"] },
+        "changedByUid": { "type": "string", "maxLength": 128 },
+        "reason": { "type": "string", "minLength": 15, "maxLength": 500 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["logId", "orderId", "oldWeight", "newWeight", "changedByRole", "changedByUid", "reason", "createdAt"]
+    },
+    "RiderPodLedger": {
+      "title": "RiderPodLedger",
+      "description": "Cash and Rider UPI QR collection entries awaiting EOD reconciliation.",
+      "type": "object",
+      "properties": {
+        "entryId": { "type": "string", "maxLength": 64, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "riderId": { "type": "string", "maxLength": 64 },
+        "riderName": { "type": "string", "maxLength": 100 },
+        "hubId": { "type": "string", "maxLength": 64 },
+        "orderId": { "type": "string", "maxLength": 64 },
+        "collectionMode": { "type": "string", "enum": ["CASH", "RIDER_UPI_QR"] },
+        "amountCollected": { "type": "number" },
+        "settlementStatus": { "type": "string", "enum": ["UNSETTLED", "SETTLED_WITH_HUB"] },
+        "settledWithUid": { "type": "string", "maxLength": 128 },
+        "ownerUid": { "type": "string", "maxLength": 128 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["entryId", "riderId", "hubId", "orderId", "collectionMode", "amountCollected", "settlementStatus", "ownerUid", "createdAt", "updatedAt"]
+    },
+    "StaffAccount": {
+      "title": "StaffAccount",
+      "description": "Facility staff and role credentials imported individually or via bulk Excel upload (passwords stored only as salted SHA-256 hashes).",
+      "type": "object",
+      "properties": {
+        "staffId": { "type": "string", "maxLength": 64, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "loginId": { "type": "string", "maxLength": 100 },
+        "fullName": { "type": "string", "maxLength": 100 },
+        "role": { "type": "string", "enum": ["SUPER_ADMIN", "FRANCHISE_PARTNER", "HUB_OPERATOR", "RIDER"] },
+        "hubId": { "type": "string", "maxLength": 64 },
+        "passwordHash": { "type": "string", "maxLength": 128 },
+        "status": { "type": "string", "enum": ["ACTIVE", "SUSPENDED"] },
+        "ownerUid": { "type": "string", "maxLength": 128 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["staffId", "loginId", "fullName", "role", "hubId", "passwordHash", "status", "ownerUid", "createdAt", "updatedAt"]
+    },
+    "ProductFormula": {
+      "title": "ProductFormula",
+      "description": "Laundry care service or retail product with Bill of Materials (BOM) making cost and margin configuration.",
+      "type": "object",
+      "properties": {
+        "productId": { "type": "string", "maxLength": 64, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "sku": { "type": "string", "maxLength": 32 },
+        "name": { "type": "string", "maxLength": 100 },
+        "category": { "type": "string", "enum": ["LAUNDRY_SERVICE", "DRY_CLEAN", "ADDON_TREATMENT", "RETAIL_CARE"] },
+        "unitType": { "type": "string", "maxLength": 24 },
+        "sellingPrice": { "type": "number" },
+        "makingCost": { "type": "number" },
+        "stockUnits": { "type": "number" },
+        "isPublished": { "type": "boolean" },
+        "ownerUid": { "type": "string", "maxLength": 128 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["productId", "sku", "name", "category", "unitType", "sellingPrice", "makingCost", "stockUnits", "isPublished", "ownerUid", "createdAt", "updatedAt"]
+    },
+    "ProductionBatch": {
+      "title": "ProductionBatch",
+      "description": "Recorded product making run consuming raw material BOM and incrementing finished inventory.",
+      "type": "object",
+      "properties": {
+        "batchId": { "type": "string", "maxLength": 64, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "productId": { "type": "string", "maxLength": 64 },
+        "hubId": { "type": "string", "maxLength": 64 },
+        "quantityProduced": { "type": "number" },
+        "totalCost": { "type": "number" },
+        "status": { "type": "string", "enum": ["PLANNED", "IN_PRODUCTION", "QC_PASSED"] },
+        "ownerUid": { "type": "string", "maxLength": 128 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["batchId", "productId", "hubId", "quantityProduced", "totalCost", "status", "ownerUid", "createdAt"]
+    },
+    "AuditEvent": {
+      "title": "AuditEvent",
+      "description": "Append-only operational audit trail for config edits, bulk Excel imports, settlements, and product batches.",
+      "type": "object",
+      "properties": {
+        "eventId": { "type": "string", "maxLength": 64, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "actorUid": { "type": "string", "maxLength": 128 },
+        "actorRole": { "type": "string", "maxLength": 40 },
+        "action": { "type": "string", "maxLength": 80 },
+        "entityType": { "type": "string", "maxLength": 40 },
+        "summary": { "type": "string", "maxLength": 400 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["eventId", "actorUid", "actorRole", "action", "entityType", "summary", "createdAt"]
+    },
+    "RunningBanner": {
+      "title": "RunningBanner",
+      "description": "Super Admin managed running ad marquee banner targeting Public Website and/or Franchise Portals.",
+      "type": "object",
+      "properties": {
+        "bannerId": { "type": "string", "maxLength": 64, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "title": { "type": "string", "maxLength": 100 },
+        "tickerText": { "type": "string", "maxLength": 400 },
+        "placement": { "type": "string", "enum": ["PUBLIC_WEBSITE", "FRANCHISE_PORTAL", "BOTH"] },
+        "hubId": { "type": "string", "maxLength": 64 },
+        "ctaLabel": { "type": "string", "maxLength": 60 },
+        "promoCode": { "type": "string", "maxLength": 32 },
+        "theme": { "type": "string", "enum": ["OCEAN", "SLATE", "AMBER", "EMERALD"] },
+        "speedSeconds": { "type": "number" },
+        "priority": { "type": "number" },
+        "isActive": { "type": "boolean" },
+        "ownerUid": { "type": "string", "maxLength": 128 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["bannerId", "title", "tickerText", "placement", "hubId", "theme", "speedSeconds", "priority", "isActive", "ownerUid", "createdAt", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/hubs/{hubId}": {
+      "schema": { "$ref": "#/entities/Hub" },
+      "description": "Configured self-owned and franchise hubs."
+    },
+    "/pricing_rules/{ruleId}": {
+      "schema": { "$ref": "#/entities/PricingRule" },
+      "description": "Global and hub-level dynamic pricing and fee rules."
+    },
+    "/discount_slabs/{slabId}": {
+      "schema": { "$ref": "#/entities/DiscountSlab" },
+      "description": "Admin-editable monetary discount tiers."
+    },
+    "/orders/{orderId}": {
+      "schema": { "$ref": "#/entities/Order" },
+      "description": "Active and historical laundry orders."
+    },
+    "/weight_audit_logs/{logId}": {
+      "schema": { "$ref": "#/entities/WeightAuditLog" },
+      "description": "Immutable dispute override audit logs."
+    },
+    "/rider_pod_ledger/{entryId}": {
+      "schema": { "$ref": "#/entities/RiderPodLedger" },
+      "description": "Rider cash and UPI POD settlement records."
+    },
+    "/staff_accounts/{staffId}": {
+      "schema": { "$ref": "#/entities/StaffAccount" },
+      "description": "Facility staff and RBAC role accounts with salted password hashes."
+    },
+    "/products/{productId}": {
+      "schema": { "$ref": "#/entities/ProductFormula" },
+      "description": "Laundry care products and service BOM definitions."
+    },
+    "/production_batches/{batchId}": {
+      "schema": { "$ref": "#/entities/ProductionBatch" },
+      "description": "Product making production batches."
+    },
+    "/audit_events/{eventId}": {
+      "schema": { "$ref": "#/entities/AuditEvent" },
+      "description": "Immutable ERP change audit stream."
+    },
+    "/banners/{bannerId}": {
+      "schema": { "$ref": "#/entities/RunningBanner" },
+      "description": "Running ticker and promotional ad banners for Public Website and Franchise Portal."
+    }
+  }
+}

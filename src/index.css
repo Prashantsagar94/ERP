@@ -1,0 +1,53 @@
+@import "tailwindcss";
+
+@theme {
+  --font-display: "Plus Jakarta Sans", system-ui, -apple-system, sans-serif;
+  --font-sans: "DM Sans", system-ui, -apple-system, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, monospace;
+}
+
+@layer base {
+  html,
+  body {
+    font-family: var(--font-sans);
+    background-color: #f7f8fa;
+    color: #0f172a;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-display);
+    text-wrap: balance;
+  }
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+@keyframes instawash-marquee {
+  0% {
+    transform: translateX(0%);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+.banner-marquee-track {
+  display: flex;
+  width: max-content;
+  animation: instawash-marquee var(--marquee-duration, 28s) linear infinite;
+}
+
+.banner-marquee-track:hover {
+  animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .banner-marquee-track {
+    animation: none;
+  }
+}
